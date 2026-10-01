@@ -94,6 +94,7 @@ Au premier lancement de Portainer, créer le compte admin (le *setup token* est 
 `docker service logs portainer_portainer`). Les stacks créées depuis Portainer sont en contrôle
 « Total » (modifiables dans l'interface), celles créées en CLI en contrôle « Limited ».
 
-## Captures
+## Documentation
 
-Les captures du dossier se trouvent dans `docs/captures/`.
+- Dossier complet (documentation + comptes rendus des TP) : [`docs/Dossier_Infrastructure_DevOps.pdf`](docs/Dossier_Infrastructure_DevOps.pdf)
+- Captures réelles utilisées dans le dossier : `docs/captures/`
