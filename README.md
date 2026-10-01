@@ -67,6 +67,33 @@ Seul l'inventaire change : `ansible_connection=ssh`, `ansible_host=<IP>`, `ansib
 Il faut aussi installer Docker sur les machines (tâche supplémentaire, ex. rôle `geerlingguy.docker`)
 et ouvrir les ports Swarm (2377/tcp, 7946/tcp+udp, 4789/udp).
 
+## Stacks déployées sur le cluster (`stacks/`)
+
+| Stack | Fichier | URL |
+|-------|---------|-----|
+| Traefik (reverse proxy) + whoami | `traefik.yml` | http://traefik.swarm.localhost, http://whoami.swarm.localhost |
+| App de vote (dockersamples) | `voting.yml` | http://vote.swarm.localhost, http://result.swarm.localhost |
+| Portainer (agent + serveur) | `portainer.yml` | http://portainer.swarm.localhost |
+
+Les sous-domaines `*.localhost` sont résolus vers `127.0.0.1` par les navigateurs et curl ;
+sinon, ajouter dans le fichier `hosts` : `127.0.0.1 traefik.swarm.localhost whoami.swarm.localhost ...`.
+
+```bash
+# réseau overlay partagé entre Traefik et les services publiés
+docker exec swarm-manager-1 docker network create --driver overlay --attachable web
+# déploiement d'une stack depuis le manager
+docker cp stacks/traefik.yml swarm-manager-1:/home/manager/
+docker exec -w /home/manager swarm-manager-1 docker stack deploy -c traefik.yml traefik
+```
+
+Un service est publié par Traefik dès qu'il est sur le réseau `web` et porte les labels
+`traefik.enable=true`, `traefik.http.routers.<nom>.rule=Host(...)` et
+`traefik.http.services.<nom>.loadbalancer.server.port=<port interne>` (dans `deploy.labels`).
+
+Au premier lancement de Portainer, créer le compte admin (le *setup token* est dans
+`docker service logs portainer_portainer`). Les stacks créées depuis Portainer sont en contrôle
+« Total » (modifiables dans l'interface), celles créées en CLI en contrôle « Limited ».
+
 ## Captures
 
 Les captures du dossier se trouvent dans `docs/captures/`.
