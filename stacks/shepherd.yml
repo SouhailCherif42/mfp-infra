@@ -1,0 +1,17 @@
+# Shepherd (https://github.com/containrrr/shepherd) : CD par polling pour Docker Swarm.
+# Toutes les SLEEP_TIME, il vérifie si l'image de chaque service a changé sur le registre
+# (même tag, nouveau digest) et lance "docker service update" si c'est le cas.
+services:
+  app:
+    image: containrrr/shepherd
+    environment:
+      TZ: 'Europe/Paris'
+      SLEEP_TIME: '1m'
+      FILTER_SERVICES: ''
+      VERBOSE: 'true'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager

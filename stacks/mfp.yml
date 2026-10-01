@@ -1,0 +1,40 @@
+# API MFP + sa base PostgreSQL, déployées depuis Portainer.
+# Tag générique "main" : chaque push sur main produit une nouvelle image sous ce même tag,
+# ce qui permet à Shepherd de détecter les mises à jour.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: supersecret
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  server:
+    image: ghcr.io/souhailcherif42/mfp-server:main
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: supersecret
+    networks:
+      - internal # communication API ↔ BDD (non exposée)
+      - web # réseau de Traefik
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mfp.rule=Host(`mfp.swarm.localhost`)"
+        - "traefik.http.routers.mfp.entrypoints=web"
+        - "traefik.http.services.mfp.loadbalancer.server.port=3000"
+
+networks:
+  internal:
+  web:
+    external: true
+
+volumes:
+  db-data:
