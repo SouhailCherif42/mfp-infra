@@ -3,11 +3,15 @@
 # (même tag, nouveau digest) et lance "docker service update" si c'est le cas.
 services:
   app:
-    image: containrrr/shepherd
+    # image épinglée par digest : pas de requête Docker Hub au redémarrage (quota anonyme limité)
+    image: containrrr/shepherd:latest@sha256:b117c2394832e088932d5e1eebb8df6c1924f47d0fef31788cb310c0fe3bf7db
     environment:
       TZ: 'Europe/Paris'
       SLEEP_TIME: '1m'
-      FILTER_SERVICES: ''
+      # Seuls les services qui le demandent explicitement sont mis à jour
+      FILTER_SERVICES: 'label=autoupdate_enabled=true'
+      # Après une mise à jour, ne garde que la dernière image du service (sur le noeud de Shepherd)
+      IMAGE_AUTOCLEAN_LIMIT: '1'
       VERBOSE: 'true'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

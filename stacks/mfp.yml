@@ -3,7 +3,8 @@
 # ce qui permet à Shepherd de détecter les mises à jour.
 services:
   db:
-    image: postgres:17-alpine
+    # épinglée par digest : le noeud utilise l'image locale sans interroger Docker Hub
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     environment:
       POSTGRES_PASSWORD: supersecret
     volumes:
@@ -12,7 +13,7 @@ services:
       - internal
     deploy:
       placement:
-        constraints: [node.role == manager]
+        constraints: [node.labels.nodeId == 2] # noeud worker étiqueté nodeId=2
 
   server:
     image: ghcr.io/souhailcherif42/mfp-server:main
@@ -24,8 +25,12 @@ services:
       - web # réseau de Traefik
     deploy:
       placement:
-        constraints: [node.role == manager]
+        constraints: [node.labels.nodeId == 2] # noeud worker étiqueté nodeId=2
+      update_config:
+        order: start-first # le nouveau conteneur démarre avant l'arrêt de l'ancien
+        failure_action: rollback # retour à l'image précédente si la MAJ échoue
       labels:
+        - "autoupdate_enabled=true" # Shepherd met à jour ce service (FILTER_SERVICES)
         - "traefik.enable=true"
         - "traefik.http.routers.mfp.rule=Host(`mfp.swarm.localhost`)"
         - "traefik.http.routers.mfp.entrypoints=web"
