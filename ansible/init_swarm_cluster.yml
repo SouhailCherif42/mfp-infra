@@ -1,0 +1,33 @@
+# Initialise un cluster Docker Swarm : idempotent, rejouable sans effet si tout est déjà en place.
+- name: Initialize Docker Swarm manager
+  hosts: managers
+  tasks:
+    - name: Read swarm state
+      command: docker info --format {% raw %}'{{.Swarm.LocalNodeState}}'{% endraw %}
+      register: swarm_state
+      changed_when: false
+
+    - name: Initialize swarm
+      command: docker swarm init
+      when: swarm_state.stdout != "active"
+
+    - name: Retrieve worker join token
+      command: docker swarm join-token worker -q
+      register: worker_token
+      changed_when: false
+
+- name: Join workers to the Swarm cluster
+  hosts: workers
+  vars:
+    manager: "{{ groups['managers'][0] }}"
+  tasks:
+    - name: Read swarm state
+      command: docker info --format {% raw %}'{{.Swarm.LocalNodeState}}'{% endraw %}
+      register: swarm_state
+      changed_when: false
+
+    - name: Join swarm as worker
+      command: >-
+        docker swarm join --token {{ hostvars[manager].worker_token.stdout }}
+        {{ swarm_manager_addr }}:2377
+      when: swarm_state.stdout != "active"
