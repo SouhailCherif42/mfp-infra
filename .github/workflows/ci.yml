@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/souhailcherif42/mfp
+
+jobs:
+  # Détecte quels dossiers ont changé : on ne teste / compile que ce qui est impacté
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      client: ${{ steps.filter.outputs.client }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            server:
+              - 'server/**'
+              - 'bruno/**'
+              - '.github/workflows/**'
+            client:
+              - 'client/**'
+              - '.github/workflows/**'
+
+  server-test:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: server/yarn.lock
+      - run: yarn install --frozen-lockfile
+      - run: yarn test
+      - run: yarn build
+
+  # Test d'API Bruno : l'API et sa BDD sont lancées dans la CI avec Docker Compose
+  api-test:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --build --wait db server
+      - run: npx --yes @usebruno/cli run --env local
+        working-directory: bruno
+      - if: failure()
+        run: docker compose logs server
+
+  client-test:
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: client/yarn.lock
+      - run: yarn install --frozen-lockfile
+      - run: yarn lint
+      - run: yarn build
+
+  # Compilation + publication des images (uniquement sur main, pas sur les PR)
+  build:
+    needs: [changes, server-test, api-test, client-test]
+    if: |
+      always() && github.event_name == 'push' &&
+      !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        app: [server, client]
+    steps:
+      - name: Skip if unchanged
+        id: check
+        run: echo "run=${{ needs.changes.outputs[matrix.app] }}" >> "$GITHUB_OUTPUT"
+      - if: steps.check.outputs.run == 'true'
+        uses: actions/checkout@v4
+      - if: steps.check.outputs.run == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.check.outputs.run == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}
+          tags: |
+            type=raw,value=latest
+            type=ref,event=branch
+            type=sha
+      - if: steps.check.outputs.run == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.app }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # Check unique exigé par la protection de branche (les jobs sautés comptent comme OK)
+  ci-ok:
+    needs: [server-test, api-test, client-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "server-test=${{ needs.server-test.result }} api-test=${{ needs.api-test.result }} client-test=${{ needs.client-test.result }}"
+          ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}

@@ -24,6 +24,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # l'API répond 403 sans token : on vérifie seulement qu'elle répond
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/users/me').then(() => process.exit(0), () => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
   client:
@@ -31,7 +37,8 @@ services:
     ports:
       - 8080:80
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
