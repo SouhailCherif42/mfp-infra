@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch: # lancement manuel : teste et compile tout
 
 env:
   REGISTRY: ghcr.io
@@ -15,8 +16,8 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      server: ${{ steps.filter.outputs.server }}
-      client: ${{ steps.filter.outputs.client }}
+      server: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.server == 'true' }}
+      client: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.client == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -84,7 +85,7 @@ jobs:
   build:
     needs: [changes, server-test, api-test, client-test]
     if: |
-      always() && github.event_name == 'push' &&
+      always() && github.event_name != 'pull_request' &&
       !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     permissions:
