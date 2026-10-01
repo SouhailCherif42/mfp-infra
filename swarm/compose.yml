@@ -1,0 +1,19 @@
+# Cluster Docker Swarm simulé en local : chaque conteneur DinD joue le rôle d'une machine.
+# docker compose up -d --scale node=3 --wait   → 1 manager + 3 noeuds
+x-dind: &dind
+  image: docker:dind
+  privileged: true # nécessaire pour faire tourner un daemon Docker dans le conteneur (local uniquement !)
+  healthcheck:
+    test: ["CMD", "docker", "info"] # le daemon interne répond
+    interval: 3s
+    retries: 20
+
+services:
+  manager:
+    <<: *dind
+    hostname: manager
+    volumes:
+      - /home/manager # volume anonyme : les stacks copiées ici survivent à un redémarrage
+
+  node:
+    <<: *dind
