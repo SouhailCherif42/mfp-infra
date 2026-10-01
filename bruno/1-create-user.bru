@@ -1,0 +1,29 @@
+meta {
+  name: Create user
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/users
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{email}}",
+    "password": "azerty"
+  }
+}
+
+script:pre-request {
+  bru.setVar("email", `souhail-${Date.now()}@mfp.fr`);
+}
+
+tests {
+  test("user created", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().item.email).to.equal(bru.getVar("email"));
+  });
+}

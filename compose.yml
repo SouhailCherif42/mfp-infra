@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: supersecret
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432 # accès depuis la machine hôte pour le dev local (yarn dev)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  server:
+    build: ./server
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: supersecret
+    ports:
+      - 3000:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  client:
+    build: ./client
+    ports:
+      - 8080:80
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  db-data:

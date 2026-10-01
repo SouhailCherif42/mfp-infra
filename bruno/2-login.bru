@@ -1,0 +1,29 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/users/tokens
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{email}}",
+    "password": "azerty"
+  }
+}
+
+script:post-response {
+  bru.setVar("token", res.getBody().token);
+}
+
+tests {
+  test("token returned", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().token).to.be.a("string");
+  });
+}

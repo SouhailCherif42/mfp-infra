@@ -1,0 +1,30 @@
+meta {
+  name: Add address
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/addresses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "ESGI Lyon",
+    "description": "Mon école",
+    "searchWord": "242 rue Garibaldi Lyon"
+  }
+}
+
+tests {
+  test("address geocoded", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().item.lat).to.be.a("number");
+  });
+}
