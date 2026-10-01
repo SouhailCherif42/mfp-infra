@@ -41,6 +41,32 @@ bru run --env local     # API sur :3000
 bru run --env compose   # via Nginx sur :8080
 ```
 
+## Cluster Docker Swarm local (DinD + Ansible)
+
+Chaque conteneur Docker-in-Docker de `swarm/compose.yml` simule une machine du cluster.
+
+```bash
+cd swarm
+docker compose up -d --build --scale node=3 --wait   # 1 manager + 3 noeuds
+cd ..
+./ansible.sh                                          # init du Swarm + jonction des workers
+docker exec swarm-manager-1 docker node ls
+```
+
+- `ansible.sh` lance Ansible **dans un conteneur** (Ansible n'existe pas nativement sous Windows) ;
+  le socket Docker est monté et la connexion `community.docker.docker` remplace SSH par `docker exec`.
+- Le playbook `ansible/init_swarm_cluster.yml` est idempotent : il lit l'état Swarm de chaque noeud
+  et n'exécute `swarm init` / `swarm join` que si nécessaire (relance = `changed=0`).
+- Ajouter un noeud : `docker compose up -d --scale node=4`, ajouter `swarm-node-4` dans
+  `ansible/inventory.ini`, relancer `./ansible.sh`.
+
+### Utiliser le playbook sur de vraies VMs / VPS
+
+Seul l'inventaire change : `ansible_connection=ssh`, `ansible_host=<IP>`, `ansible_user=<user>`,
+`ansible_become=true`, une clé SSH autorisée sur les machines, et `swarm_manager_addr=<IP privée du manager>`.
+Il faut aussi installer Docker sur les machines (tâche supplémentaire, ex. rôle `geerlingguy.docker`)
+et ouvrir les ports Swarm (2377/tcp, 7946/tcp+udp, 4789/udp).
+
 ## Captures
 
 Les captures du dossier se trouvent dans `docs/captures/`.

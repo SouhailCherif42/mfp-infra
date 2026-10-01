@@ -1,7 +1,8 @@
 # Cluster Docker Swarm simulé en local : chaque conteneur DinD joue le rôle d'une machine.
-# docker compose up -d --scale node=3 --wait   → 1 manager + 3 noeuds
+# docker compose up -d --build --scale node=3 --wait   → 1 manager + 3 noeuds
+# puis ../ansible.sh pour initialiser le cluster Swarm
 x-dind: &dind
-  image: docker:dind
+  build: .
   privileged: true # nécessaire pour faire tourner un daemon Docker dans le conteneur (local uniquement !)
   healthcheck:
     test: ["CMD", "docker", "info"] # le daemon interne répond
@@ -12,6 +13,8 @@ services:
   manager:
     <<: *dind
     hostname: manager
+    ports:
+      - 80:80 # Traefik (TP4) : point d'entrée HTTP du cluster depuis la machine hôte
     volumes:
       - /home/manager # volume anonyme : les stacks copiées ici survivent à un redémarrage
 
